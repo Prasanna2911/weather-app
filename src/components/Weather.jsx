@@ -9,6 +9,12 @@ import humidity from "../assets/humidity.png";
 import "../components/Weather.css";
 
 const Weather = () => {
+  const search = async () => {
+    try {
+      const apiKey = "dbdecc1badd28a7220ac4fe598b06100";
+      const url = `http://api.weatherstack.com/current?access_key=${apiKey}&query=${city}`;
+    } catch (err) {}
+  };
   return (
     <div className="weather place-self-center p-[40px] rounded-[10px] bg-linear-45 from-[#2f4680] to-[#500ae4] flex flex-col items-center">
       <div className="search-bar flex items-center gap-[12px]">
