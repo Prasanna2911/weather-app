@@ -10,6 +10,19 @@ import "../components/Weather.css";
 import { useEffect, useState, useRef } from "react";
 
 const Weather = () => {
+  const getWeatherImage = (description) => {
+    if (!description) return clear;
+    // console.log(description, "my image");
+    const lowerCaseDescription = description.toLowerCase();
+    if (lowerCaseDescription.includes("clear")) return clear;
+    if (lowerCaseDescription.includes("cloud")) return cloud;
+    if (lowerCaseDescription.includes("drizzle")) return drizle;
+    if (lowerCaseDescription.includes("rain")) return rain;
+    if (lowerCaseDescription.includes("snow")) return snow;
+    if (lowerCaseDescription.includes("wind")) return wind;
+
+    return clear;
+  };
   const [weatherData, setWeatherData] = useState(false);
   const inputRef = useRef();
   const search = async (city) => {
@@ -17,25 +30,30 @@ const Weather = () => {
       alert("Please Enter a City name");
       return;
     }
-    console.log(city, "city");
+    console.log(`Searching for city: ${city}`);
     try {
       const apiKey = "dbdecc1badd28a7220ac4fe598b06100";
       const url = `http://api.weatherstack.com/current?access_key=${apiKey}&query=${city}`;
       const response = await fetch(url);
       // console.log(response);
       const data = await response.json();
-      if (!response.ok) {
-        setWeatherData(false);
+      console.log(data);
+      if (!response.ok || !data.location) {
+        setWeatherData(null);
+        alert("City not Found. Please Enter a Valid City Name");
         return;
       }
-      console.log(data);
+
+      // console.log(data);
       console.log(data.current);
       setWeatherData({
         temperature: data.current.temperature,
         humidity: data.current.humidity,
         windSpeed: data.current.wind_speed,
         location: data.location.name,
-        weatherIcon: data.current.weather_icons[0],
+        weatherIcon: getWeatherImage(
+          data.current.weather_descriptions ? [0] : ""
+        ),
       });
 
       // console.log(weatherData, "weatherData");
@@ -45,9 +63,9 @@ const Weather = () => {
     }
   };
   JSON.stringify(weatherData);
-  console.log(JSON.stringify(weatherData));
+  // console.log(JSON.stringify(weatherData));
   useEffect(() => {
-    search("madurai");
+    search("");
   }, []);
   // for optimization
   // if (!weatherData) return <div>Loading...</div>;
@@ -66,6 +84,7 @@ const Weather = () => {
           alt="Search-Icon"
           className="w-[50px] cursor-pointer p-[16px] rounded-[50%] bg-[#ebfffc]"
           onClick={() => search(inputRef.current.value)}
+          autoSave=""
         />
       </div>
       {weatherData ? (
@@ -97,7 +116,7 @@ const Weather = () => {
             <div className="col">
               <img src={wind} alt="Wind-Speed" />
               <div>
-                <p> {weatherData.windSpeed}km</p>
+                <p> {weatherData.windSpeed}km/h</p>
                 <span>Wind</span>
               </div>
             </div>
