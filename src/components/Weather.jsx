@@ -1,77 +1,98 @@
+import React, { useEffect, useState, useRef } from "react";
 import Search from "../assets/search.png";
 import clear from "../assets/clear.png";
 import cloud from "../assets/cloud.png";
-import drizle from "../assets/drizzle.png";
+import drizzle from "../assets/drizzle.png";
 import rain from "../assets/rain.png";
 import snow from "../assets/snow.png";
 import wind from "../assets/wind.png";
-import humidity from "../assets/humidity.png";
+import humidityIcon from "../assets/humidity.png";
 import "../components/Weather.css";
-import { useEffect, useState, useRef } from "react";
 
 const Weather = () => {
-  const getWeatherImage = (description) => {
-    if (!description) return clear;
-    // console.log(description, "my image");
-    const lowerCaseDescription = description.toLowerCase();
-    if (lowerCaseDescription.includes("clear")) return clear;
-    if (lowerCaseDescription.includes("cloud")) return cloud;
-    if (lowerCaseDescription.includes("drizzle")) return drizle;
-    if (lowerCaseDescription.includes("rain")) return rain;
-    if (lowerCaseDescription.includes("snow")) return snow;
-    if (lowerCaseDescription.includes("wind")) return wind;
-
-    return clear;
-  };
-  const [weatherData, setWeatherData] = useState(false);
+  const [weatherData, setWeatherData] = useState(null);
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef();
+
+  // Function to get appropriate weather image
+  const getWeatherImage = (weatherCode) => {
+    if (weatherCode === 0) return clear; // Clear Sky
+    if (weatherCode === 2) return cloud; // Partly Cloudy
+    if (weatherCode === 3) return cloud; // Cloudy
+    if (weatherCode >= 51) return rain; // Rain
+    if (weatherCode >= 71) return snow; // Snow
+    return drizzle; // Default
+  };
+
+  // Function to fetch weather data
   const search = async (city) => {
-    if (city === "") {
-      alert("Please Enter a City name");
+    if (!city.trim()) {
+      alert("Please enter a city name");
       return;
     }
-    console.log(`Searching for city: ${city}`);
+
+    setLoading(true);
     try {
-      const apiKey = "dbdecc1badd28a7220ac4fe598b06100";
-      const url = `http://api.weatherstack.com/current?access_key=${apiKey}&query=${city}`;
-      const response = await fetch(url);
-      // console.log(response);
-      const data = await response.json();
-      console.log(data);
-      if (!response.ok || !data.location) {
+      // Get latitude & longitude for city
+      const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${city}&count=1&format=json`;
+      const geoResponse = await fetch(geoUrl);
+      const geoData = await geoResponse.json();
+
+      if (!geoData.results || geoData.results.length === 0) {
         setWeatherData(null);
-        alert("City not Found. Please Enter a Valid City Name");
+        alert("City not found. Please enter a valid city name.");
+        setLoading(false);
         return;
       }
 
-      // console.log(data);
-      console.log(data.current);
+      const { latitude, longitude, name } = geoData.results[0];
+
+      // Fetch weather data using latitude & longitude
+      // const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&humidity_2m=true`;
+
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=relative_humidity_2m`;
+      // https://api.open-meteo.com/v1/forecast?latitude=40.71427&longitude=-74.00597&current_weather=true&hourly=relative_humidity_2m
+
+      const weatherResponse = await fetch(weatherUrl);
+      const weatherDataJson = await weatherResponse.json();
+      console.dir(weatherDataJson, "weather data");
+
+      if (!weatherResponse.ok || !weatherDataJson.current_weather) {
+        setWeatherData(null);
+        alert("Weather data not found for this city.");
+        setLoading(false);
+        return;
+      }
+      const humidityIndex = weatherDataJson.hourly?.time?.findIndex(
+        (time) => time === weatherDataJson.current_weather.time
+      );
+      const Humidity =
+        humidityIndex !== -1
+          ? weatherDataJson.hourly.relative_humidity_2m[humidityIndex]
+          : "N/A";
+      // Update state with weather data
       setWeatherData({
-        temperature: data.current.temperature,
-        humidity: data.current.humidity,
-        windSpeed: data.current.wind_speed,
-        location: data.location.name,
+        temperature: weatherDataJson.current_weather.temperature,
+        windSpeed: weatherDataJson.current_weather.windspeed,
+        humidity: Humidity,
+        location: name,
         weatherIcon: getWeatherImage(
-          data.current.weather_descriptions ? [0] : ""
+          weatherDataJson.current_weather.weathercode
         ),
       });
-
-      // console.log(weatherData, "weatherData");
     } catch (err) {
-      console.error("Failed");
-      setWeatherData(false);
+      console.error("Failed to fetch weather data:", err);
+      setWeatherData(null);
     }
+    setLoading(false);
   };
-  JSON.stringify(weatherData);
-  // console.log(JSON.stringify(weatherData));
+
   useEffect(() => {
-    search("");
+    search("New York"); // Default city on load
   }, []);
-  // for optimization
-  // if (!weatherData) return <div>Loading...</div>;
 
   return (
-    <div className="weather place-self-center p-[40px] rounded-[10px] bg-linear-45 from-[#2f4680] to-[#500ae4] flex flex-col items-center">
+    <div className="weather place-self-center p-[40px] rounded-[10px] bg-gradient-to-r from-[#2f4680] to-[#500ae4] flex flex-col items-center">
       <div className="search-bar flex items-center gap-[12px]">
         <input
           type="text"
@@ -84,46 +105,45 @@ const Weather = () => {
           alt="Search-Icon"
           className="w-[50px] cursor-pointer p-[16px] rounded-[50%] bg-[#ebfffc]"
           onClick={() => search(inputRef.current.value)}
-          autoSave=""
         />
       </div>
-      {weatherData ? (
+
+      {loading && <p className="text-white mt-4">Loading...</p>}
+
+      {weatherData && (
         <>
           {weatherData.weatherIcon && (
             <img
               src={weatherData.weatherIcon}
-              alt="Weather-Images"
+              alt="Weather-Icon"
               className="w-[150px] mx-0 my-[10px]"
             />
           )}
-          {/* <img src={} alt="" className="w-[150px] mx-0 my-[10px]" /> */}
-
           <p className="text-white text-[80px] leading-none">
-            {weatherData.temperature}
+            {weatherData.temperature}°C
           </p>
           <p className="location text-[40px] text-white">
             {weatherData.location}
           </p>
-          {/* Weathear Data */}
-          <div className="weather-data flex  justify-between mt-8">
-            <div className="col ">
-              <img src={humidity} alt="Humidity" />
+
+          {/* Weather Data */}
+          <div className="weather-data flex justify-between mt-8">
+            <div className="col flex items-center gap-2">
+              <img src={humidityIcon} alt="Humidity" className="w-[40px]" />
               <div>
-                <p>{weatherData.humidity}</p>
+                <p>{weatherData.humidity}%</p>
                 <span>Humidity</span>
               </div>
             </div>
-            <div className="col">
-              <img src={wind} alt="Wind-Speed" />
+            <div className="col flex items-center gap-2">
+              <img src={wind} alt="Wind-Speed" className="w-[40px]" />
               <div>
-                <p> {weatherData.windSpeed}km/h</p>
+                <p>{weatherData.windSpeed} km/h</p>
                 <span>Wind</span>
               </div>
             </div>
           </div>
         </>
-      ) : (
-        <></>
       )}
     </div>
   );
