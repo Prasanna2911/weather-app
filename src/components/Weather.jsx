@@ -12,6 +12,7 @@ import "../components/Weather.css";
 const Weather = () => {
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(""); // Store errors
   const inputRef = useRef();
 
   // Function to get appropriate weather image
@@ -32,44 +33,58 @@ const Weather = () => {
     }
 
     setLoading(true);
+    setError(""); // Reset error state
+
     try {
       // Get latitude & longitude for city
       const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${city}&count=1&format=json`;
       const geoResponse = await fetch(geoUrl);
       const geoData = await geoResponse.json();
 
+      console.log("Geo Data:", geoData); // Debugging log
+
+      // Validate if city exists
       if (!geoData.results || geoData.results.length === 0) {
         setWeatherData(null);
-        alert("City not found. Please enter a valid city name.");
+        setError("City not found. Please enter a valid city name.");
         setLoading(false);
         return;
       }
 
+      // Extract the best-matching city
       const { latitude, longitude, name } = geoData.results[0];
 
+      // **Check if returned city matches input**
+      if (!name.toLowerCase().includes(city.toLowerCase())) {
+        setError("Incorrect city found. Please enter a valid city name.");
+        setLoading(false);
+        return;
+      }
+
       // Fetch weather data using latitude & longitude
-      // const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&humidity_2m=true`;
-
       const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=relative_humidity_2m`;
-      // https://api.open-meteo.com/v1/forecast?latitude=40.71427&longitude=-74.00597&current_weather=true&hourly=relative_humidity_2m
-
       const weatherResponse = await fetch(weatherUrl);
       const weatherDataJson = await weatherResponse.json();
-      console.dir(weatherDataJson, "weather data");
+
+      console.log("Weather Data:", weatherDataJson); // Debugging log
 
       if (!weatherResponse.ok || !weatherDataJson.current_weather) {
         setWeatherData(null);
-        alert("Weather data not found for this city.");
+        setError("Weather data not found for this city.");
         setLoading(false);
         return;
       }
+
+      // **Fix Humidity Data Handling**
       const humidityIndex = weatherDataJson.hourly?.time?.findIndex(
         (time) => time === weatherDataJson.current_weather.time
       );
+
       const Humidity =
-        humidityIndex !== -1
+        humidityIndex !== -1 && humidityIndex !== undefined
           ? weatherDataJson.hourly.relative_humidity_2m[humidityIndex]
           : "N/A";
+
       // Update state with weather data
       setWeatherData({
         temperature: weatherDataJson.current_weather.temperature,
@@ -80,15 +95,19 @@ const Weather = () => {
           weatherDataJson.current_weather.weathercode
         ),
       });
+
+      // **Clear input field after search**
+      inputRef.current.value = "";
     } catch (err) {
       console.error("Failed to fetch weather data:", err);
       setWeatherData(null);
+      setError("An error occurred. Please try again.");
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    search("New York"); // Default city on load
+    search("madurai"); // Default city on load
   }, []);
 
   return (
@@ -107,9 +126,9 @@ const Weather = () => {
           onClick={() => search(inputRef.current.value)}
         />
       </div>
-
       {loading && <p className="text-white mt-4">Loading...</p>}
-
+      {error && <p className="text-red-800 mt-4 md:text-4xl">{error}</p>}
+      {/* Display error */}
       {weatherData && (
         <>
           {weatherData.weatherIcon && (
